@@ -33,15 +33,9 @@ jobs:
             zip \
             libssl-dev \
             libffi-dev \
+            liblzma-dev \
             libgl1-mesa-dev \
-            libgles2-mesa-dev \
-            libncurses5 \
-            libncurses5-dev \
-            libtinfo5 \
-            libstdc++6 \
-            libffi7 \
-            libffi-dev \
-            liblzma-dev
+            libgles2-mesa-dev
 
       - name: Install buildozer & Cython
         run: |
