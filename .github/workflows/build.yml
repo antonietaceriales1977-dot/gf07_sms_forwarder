@@ -1,65 +1,54 @@
 name: Build APK
 
 on:
-  workflow_dispatch:   # run manually
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+    - name: Set up dependencies
+      run: |
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y build-essential ccache git zip unzip openjdk-17-jdk python3 python3-pip python3-setuptools
+        sudo apt-get install -y libncurses5 libtinfo5
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            openjdk-17-jdk \
-            unzip \
-            git \
-            python3-pip \
-            python3-setuptools \
-            python3-wheel \
-            python3-venv \
-            build-essential \
-            zip \
-            libssl-dev \
-            libffi-dev \
-            liblzma-dev \
-            libgl1-mesa-dev \
-            libgles2-mesa-dev
+    - name: Install Android SDK & NDK
+      run: |
+        sudo apt-get install -y wget tar
+        mkdir -p $HOME/android-sdk
+        cd $HOME/android-sdk
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdtools.zip
+        unzip cmdtools.zip -d cmdline-tools
+        yes | cmdline-tools/cmdline-tools/bin/sdkmanager --sdk_root=$HOME/android-sdk "platform-tools" "platforms;android-31" "build-tools;31.0.0" "ndk;21.4.7075529"
+        echo "ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "ANDROIDNDK=$HOME/android-sdk/ndk/21.4.7075529" >> $GITHUB_ENV
+        echo "PATH=$HOME/android-sdk/platform-tools:$HOME/android-sdk/cmdline-tools/cmdline-tools/bin:$PATH" >> $GITHUB_ENV
 
-      - name: Install buildozer & Cython
-        run: |
-          pip install --upgrade pip
-          pip install buildozer cython==0.29.36 virtualenv
+    - name: Install Buildozer
+      run: |
+        pip install --upgrade pip
+        pip install buildozer cython virtualenv
 
-      - name: Install Android SDK/NDK
-        run: |
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          unzip -q commandlinetools-linux-9477386_latest.zip -d $HOME/android-sdk/cmdline-tools
-          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk \
-            "platform-tools" "platforms;android-31" "build-tools;31.0.0" "ndk;23.1.7779620"
+    - name: Build APK
+      run: |
+        buildozer android debug
 
-      - name: Build with Buildozer
-        run: |
-          export ANDROIDSDK=$HOME/android-sdk
-          export ANDROIDNDK=$HOME/android-sdk/ndk/23.1.7779620
-          export PATH=$ANDROIDSDK/platform-tools:$ANDROIDSDK/cmdline-tools/latest/bin:$PATH
-          buildozer -v android debug
+    - name: Upload Artifact (Actions)
+      uses: actions/upload-artifact@v4
+      with:
+        name: GF07-tracker-debug-apk
+        path: bin/*.apk
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: GF07-debug-apk
-          path: bin/*.apk
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: bin/*.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
