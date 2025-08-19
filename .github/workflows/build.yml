@@ -1,7 +1,7 @@
 name: Build APK
 
 on:
-  workflow_dispatch: # so you can manually trigger from Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
@@ -33,7 +33,22 @@ jobs:
             libsqlite3-dev \
             zlib1g-dev \
             libjpeg-dev \
-            libfreetype6-dev
+            libfreetype6-dev \
+            curl
+
+      - name: Install Android SDK & NDK
+        run: |
+          mkdir -p $HOME/android-sdk
+          cd $HOME/android-sdk
+          curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools.zip -d cmdline-tools
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
+          yes | cmdline-tools/latest/bin/sdkmanager --licenses
+          cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-31" "build-tools;31.0.0" "ndk;23.1.7779620"
+          echo "export ANDROIDSDK=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "export ANDROIDNDK=$HOME/android-sdk/ndk/23.1.7779620" >> $GITHUB_ENV
+          echo "export PATH=$HOME/android-sdk/platform-tools:$HOME/android-sdk/build-tools/31.0.0:$PATH" >> $GITHUB_ENV
 
       - name: Install Buildozer
         run: |
